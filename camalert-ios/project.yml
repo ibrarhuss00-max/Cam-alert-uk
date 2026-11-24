@@ -1,0 +1,47 @@
+# XcodeGen spec. Run `xcodegen generate` in this folder to create CamAlertUK.xcodeproj.
+name: CamAlertUK
+options:
+  bundleIdPrefix: com.ibrar
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  CamCore:
+    path: Packages/CamCore
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  CamAlertUK:
+    type: application
+    platform: iOS
+    sources:
+      - path: CamAlertUK
+        excludes:
+          - "App/Info.plist"
+          - "App/*.entitlements"
+    dependencies:
+      - package: CamCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ibrar.camalertuk
+        INFOPLIST_FILE: CamAlertUK/App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        # Set your Team in Xcode (Signing & Capabilities) or put the Team ID here.
+        DEVELOPMENT_TEAM: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # The CarPlay entitlement is only applied to Simulator builds until Apple approves it.
+        # After approval, set the iphoneos line to the same path as the simulator line.
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": CamAlertUK/App/CamAlertUK.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": ""
+schemes:
+  CamAlertUK:
+    build:
+      targets:
+        CamAlertUK: all
+    run:
+      config: Debug

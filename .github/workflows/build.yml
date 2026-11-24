@@ -1,0 +1,91 @@
+# Builds Cam Alert UK on a GitHub cloud Mac every time you push, so compile errors show up
+# without needing your own Mac. Nothing is signed or installed; this only checks the code.
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core-tests:
+    name: CamCore tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the project folder
+        id: loc
+        run: |
+          file="$(find . -maxdepth 3 -name project.yml | head -1)"
+          echo "root=$(dirname "$file")" >> "$GITHUB_OUTPUT"
+
+      - name: Tool versions
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Run the CamCore unit tests
+        working-directory: ${{ steps.loc.outputs.root }}/Packages/CamCore
+        run: swift test
+
+  app-build:
+    name: Build the app
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the project folder
+        id: loc
+        run: |
+          file="$(find . -maxdepth 3 -name project.yml | head -1)"
+          echo "root=$(dirname "$file")" >> "$GITHUB_OUTPUT"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        working-directory: ${{ steps.loc.outputs.root }}
+        run: xcodegen generate
+
+      - name: Build for the iOS Simulator
+        working-directory: ${{ steps.loc.outputs.root }}
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project CamAlertUK.xcodeproj \
+            -scheme CamAlertUK \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build-simulator.log
+
+      - name: Build for a real iPhone (unsigned)
+        working-directory: ${{ steps.loc.outputs.root }}
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project CamAlertUK.xcodeproj \
+            -scheme CamAlertUK \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build-device.log
+
+      - name: List compiler errors
+        if: always()
+        working-directory: ${{ steps.loc.outputs.root }}
+        run: |
+          {
+            echo '## Compiler errors'
+            echo '```'
+            grep -h "error:" build-*.log 2>/dev/null | sort -u | head -60 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the full build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: ${{ steps.loc.outputs.root }}/build-*.log
